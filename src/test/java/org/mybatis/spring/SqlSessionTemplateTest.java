@@ -1,31 +1,31 @@
 /**
- *    Copyright 2010-2015 the original author or authors.
+ * Copyright 2010-2020 the original author or authors.
  *
- *    Licensed under the Apache License, Version 2.0 (the "License");
- *    you may not use this file except in compliance with the License.
- *    You may obtain a copy of the License at
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- *       http://www.apache.org/licenses/LICENSE-2.0
+ *    http://www.apache.org/licenses/LICENSE-2.0
  *
- *    Unless required by applicable law or agreed to in writing, software
- *    distributed under the License is distributed on an "AS IS" BASIS,
- *    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *    See the License for the specific language governing permissions and
- *    limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 package org.mybatis.spring;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
+import static org.assertj.core.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import java.sql.SQLException;
 
 import org.apache.ibatis.session.ExecutorType;
 import org.apache.ibatis.session.SqlSession;
-import org.junit.BeforeClass;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.datasource.DataSourceTransactionManager;
 import org.springframework.transaction.TransactionStatus;
@@ -38,30 +38,38 @@ public class SqlSessionTemplateTest extends AbstractMyBatisSpringTest {
 
   private static SqlSession sqlSessionTemplate;
 
-  @BeforeClass
-  public static void setupSqlTemplate() {
+  @BeforeAll
+  static void setupSqlTemplate() {
     sqlSessionTemplate = new SqlSessionTemplate(sqlSessionFactory);
   }
 
-  @Test
-  public void testGetConnection() throws java.sql.SQLException {
-    java.sql.Connection con = sqlSessionTemplate.getConnection();
-
-    // outside of an explicit tx, getConnection() will start a tx, get an open connection then
-    // end the tx, which closes the connection
-    assertTrue(con.isClosed());
+  @AfterEach
+  void tearDown() {
+    try {
+      connection.close();
+    } catch (SQLException ignored) {
+    }
   }
 
   @Test
-  public void testGetConnectionInTx() throws java.sql.SQLException {
+  void testGetConnection() throws java.sql.SQLException {
+    java.sql.Connection conn = sqlSessionTemplate.getConnection();
+
+    // outside of an explicit tx, getConnection() will start a tx, get an open connection then
+    // end the tx, which closes the connection
+    assertThat(conn.isClosed()).isTrue();
+  }
+
+  @Test
+  void testGetConnectionInTx() throws java.sql.SQLException {
     TransactionStatus status = null;
 
     try {
       status = txManager.getTransaction(new DefaultTransactionDefinition());
 
-      java.sql.Connection con = sqlSessionTemplate.getConnection();
+      java.sql.Connection conn = sqlSessionTemplate.getConnection();
 
-      assertFalse(con.isClosed());
+      assertThat(conn.isClosed()).isFalse();
 
     } finally {
       // rollback required to close connection
@@ -69,37 +77,25 @@ public class SqlSessionTemplateTest extends AbstractMyBatisSpringTest {
     }
   }
 
-  @Test(expected = UnsupportedOperationException.class)
-  public void testCommit() throws SQLException {
-    try {
-      sqlSessionTemplate.commit();
-    } finally {
-      connection.close();
-    }
-  }
-
-  @Test(expected = UnsupportedOperationException.class)
-  public void testClose() throws SQLException {
-    try {
-      sqlSessionTemplate.close();
-    } finally {
-      connection.close();
-    }
-  }
-
-  @Test(expected = UnsupportedOperationException.class)
-  public void testRollback() throws SQLException {
-    try {
-      sqlSessionTemplate.rollback();
-    } finally {
-      connection.close();
-    }
+  @Test
+  void testCommit() {
+    assertThrows(UnsupportedOperationException.class, sqlSessionTemplate::commit);
   }
 
   @Test
-  public void testExecutorType() {
+  void testClose() {
+    assertThrows(UnsupportedOperationException.class, sqlSessionTemplate::close);
+  }
+
+  @Test
+  void testRollback() {
+    assertThrows(UnsupportedOperationException.class, sqlSessionTemplate::rollback);
+  }
+
+  @Test
+  void testExecutorType() {
     SqlSessionTemplate template = new SqlSessionTemplate(sqlSessionFactory, ExecutorType.BATCH);
-    assertEquals(ExecutorType.BATCH, template.getExecutorType());
+    assertThat(template.getExecutorType()).isEqualTo(ExecutorType.BATCH);
 
     DataSourceTransactionManager manager = new DataSourceTransactionManager(dataSource);
 
@@ -111,10 +107,9 @@ public class SqlSessionTemplateTest extends AbstractMyBatisSpringTest {
       // will synchronize the template with the current tx
       template.getConnection();
 
-      SqlSessionHolder holder = (SqlSessionHolder) TransactionSynchronizationManager
-          .getResource(sqlSessionFactory);
+      SqlSessionHolder holder = (SqlSessionHolder) TransactionSynchronizationManager.getResource(sqlSessionFactory);
 
-      assertEquals(ExecutorType.BATCH, holder.getExecutorType());
+      assertThat(holder.getExecutorType()).isEqualTo(ExecutorType.BATCH);
     } finally {
       // rollback required to close connection
       txManager.rollback(status);
@@ -122,7 +117,7 @@ public class SqlSessionTemplateTest extends AbstractMyBatisSpringTest {
   }
 
   @Test
-  public void testExceptionTranslationShouldThrowMyBatisSystemException() throws SQLException {
+  void testExceptionTranslationShouldThrowMyBatisSystemException() throws SQLException {
     try {
       sqlSessionTemplate.selectOne("undefined");
       fail("exception not thrown when expected");
@@ -136,7 +131,7 @@ public class SqlSessionTemplateTest extends AbstractMyBatisSpringTest {
   }
 
   @Test
-  public void testExceptionTranslationShouldThrowDataAccessException() {
+  void testExceptionTranslationShouldThrowDataAccessException() {
 
     // this query must be the same as the query in TestMapper.xml
     connection.getPreparedStatementResultSetHandler().prepareThrowsSQLException("SELECT 'fail'");
@@ -154,7 +149,7 @@ public class SqlSessionTemplateTest extends AbstractMyBatisSpringTest {
   }
 
   @Test
-  public void testTemplateWithNoTxInsert() {
+  void testTemplateWithNoTxInsert() {
 
     sqlSessionTemplate.getMapper(TestMapper.class).insertTest("test1");
     assertCommitJdbc();
@@ -163,7 +158,7 @@ public class SqlSessionTemplateTest extends AbstractMyBatisSpringTest {
   }
 
   @Test
-  public void testTemplateWithNoTxSelect() {
+  void testTemplateWithNoTxSelect() {
 
     sqlSessionTemplate.getMapper(TestMapper.class).findTest();
     assertCommit();
@@ -171,7 +166,7 @@ public class SqlSessionTemplateTest extends AbstractMyBatisSpringTest {
   }
 
   @Test
-  public void testWithTxRequired() {
+  void testWithTxRequired() {
     DefaultTransactionDefinition txDef = new DefaultTransactionDefinition();
     txDef.setPropagationBehaviorName("PROPAGATION_REQUIRED");
 
@@ -180,7 +175,7 @@ public class SqlSessionTemplateTest extends AbstractMyBatisSpringTest {
     sqlSessionTemplate.getMapper(TestMapper.class).findTest();
 
     txManager.commit(status);
-    
+
     assertCommit();
     assertSingleConnection();
   }

@@ -1,43 +1,36 @@
 /**
- *    Copyright 2010-2015 the original author or authors.
+ * Copyright 2010-2020 the original author or authors.
  *
- *    Licensed under the Apache License, Version 2.0 (the "License");
- *    you may not use this file except in compliance with the License.
- *    You may obtain a copy of the License at
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- *       http://www.apache.org/licenses/LICENSE-2.0
+ *    http://www.apache.org/licenses/LICENSE-2.0
  *
- *    Unless required by applicable law or agreed to in writing, software
- *    distributed under the License is distributed on an "AS IS" BASIS,
- *    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *    See the License for the specific language governing permissions and
- *    limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 package org.mybatis.spring;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.fail;
-
-import java.sql.SQLException;
-
-import org.apache.ibatis.plugin.Interceptor;
-import org.apache.ibatis.session.SqlSessionFactory;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.BeforeClass;
-import org.springframework.core.io.ClassPathResource;
-import org.springframework.core.io.Resource;
-import org.springframework.dao.support.PersistenceExceptionTranslator;
-import org.springframework.jdbc.datasource.DataSourceTransactionManager;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import com.mockrunner.mock.jdbc.MockConnection;
 import com.mockrunner.mock.jdbc.MockResultSet;
 
-/**
- * 
- *
- * @version $Id$
- */
+import java.sql.SQLException;
+
+import org.apache.ibatis.session.SqlSessionFactory;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
+import org.springframework.core.io.ClassPathResource;
+import org.springframework.dao.support.PersistenceExceptionTranslator;
+import org.springframework.jdbc.datasource.DataSourceTransactionManager;
+
 public abstract class AbstractMyBatisSpringTest {
 
   protected static PooledMockDataSource dataSource = new PooledMockDataSource();
@@ -54,14 +47,14 @@ public abstract class AbstractMyBatisSpringTest {
 
   protected MockConnection connectionTwo;
 
-  @BeforeClass
+  @BeforeAll
   public static void setupBase() throws Exception {
     // create an SqlSessionFactory that will use SpringManagedTransactions
     SqlSessionFactoryBean factoryBean = new SqlSessionFactoryBean();
-    factoryBean.setMapperLocations(new Resource[] { new ClassPathResource("org/mybatis/spring/TestMapper.xml") });
+    factoryBean.setMapperLocations(new ClassPathResource("org/mybatis/spring/TestMapper.xml"));
     // note running without SqlSessionFactoryBean.configLocation set => default configuration
     factoryBean.setDataSource(dataSource);
-    factoryBean.setPlugins(new Interceptor[] { executorInterceptor });
+    factoryBean.setPlugins(executorInterceptor);
 
     exceptionTranslator = new MyBatisExceptionTranslator(dataSource, true);
 
@@ -76,13 +69,13 @@ public abstract class AbstractMyBatisSpringTest {
   }
 
   protected void assertNoCommitJdbc() {
-    assertEquals("should not call commit on Connection", 0, connection.getNumberCommits());
-    assertEquals("should not call rollback on Connection", 0, connection.getNumberRollbacks());
+    assertThat(connection.getNumberCommits()).as("should not call commit on Connection").isEqualTo(0);
+    assertThat(connection.getNumberRollbacks()).as("should not call rollback on Connection").isEqualTo(0);
   }
 
   protected void assertNoCommitSession() {
-    assertEquals("should not call commit on SqlSession", 0, executorInterceptor.getCommitCount());
-    assertEquals("should not call rollback on SqlSession", 0, executorInterceptor.getRollbackCount());
+    assertThat(executorInterceptor.getCommitCount()).as("should not call commit on SqlSession").isEqualTo(0);
+    assertThat(executorInterceptor.getRollbackCount()).as("should not call rollback on SqlSession").isEqualTo(0);
   }
 
   protected void assertCommit() {
@@ -91,29 +84,29 @@ public abstract class AbstractMyBatisSpringTest {
   }
 
   protected void assertCommitJdbc() {
-    assertEquals("should call commit on Connection", 1, connection.getNumberCommits());
-    assertEquals("should not call rollback on Connection", 0, connection.getNumberRollbacks());
+    assertThat(connection.getNumberCommits()).as("should call commit on Connection").isEqualTo(1);
+    assertThat(connection.getNumberRollbacks()).as("should not call rollback on Connection").isEqualTo(0);
   }
 
   protected void assertCommitSession() {
-    assertEquals("should call commit on SqlSession", 1, executorInterceptor.getCommitCount());
-    assertEquals("should not call rollback on SqlSession", 0, executorInterceptor.getRollbackCount());
+    assertThat(executorInterceptor.getCommitCount()).as("should call commit on SqlSession").isEqualTo(1);
+    assertThat(executorInterceptor.getRollbackCount()).as("should not call rollback on SqlSession").isEqualTo(0);
   }
 
   protected void assertRollback() {
-    assertEquals("should not call commit on Connection", 0, connection.getNumberCommits());
-    assertEquals("should call rollback on Connection", 1, connection.getNumberRollbacks());
-    assertEquals("should not call commit on SqlSession", 0, executorInterceptor.getCommitCount());
-    assertEquals("should call rollback on SqlSession", 1, executorInterceptor.getRollbackCount());
+    assertThat(connection.getNumberCommits()).as("should not call commit on Connection").isEqualTo(0);
+    assertThat(connection.getNumberRollbacks()).as("should call rollback on Connection").isEqualTo(1);
+    assertThat(executorInterceptor.getCommitCount()).as("should not call commit on SqlSession").isEqualTo(0);
+    assertThat(executorInterceptor.getRollbackCount()).as("should call rollback on SqlSession").isEqualTo(1);
   }
 
   protected void assertSingleConnection() {
-    assertEquals("should only call DataSource.getConnection() once", 1, dataSource.getConnectionCount());
+    assertThat(dataSource.getConnectionCount()).as("should only call DataSource.getConnection() once").isEqualTo(1);
   }
 
   protected void assertExecuteCount(int count) {
-    assertEquals("should have executed " + count + " SQL statements", count, connection
-        .getPreparedStatementResultSetHandler().getExecutedStatements().size());
+    assertThat(connection.getPreparedStatementResultSetHandler().getExecutedStatements().size())
+        .as("should have executed %d SQL statements", count).isEqualTo(count);
   }
 
   protected void assertConnectionClosed(MockConnection connection) {
@@ -138,10 +131,10 @@ public abstract class AbstractMyBatisSpringTest {
   }
 
   /*
-   * Setup a new Connection before each test since its closed state will need to be checked
-   * afterwards and there is no Connection.open().
+   * Setup a new Connection before each test since its closed state will need to be checked afterwards and there is no
+   * Connection.open().
    */
-  @Before
+  @BeforeEach
   public void setupConnection() throws SQLException {
     dataSource.reset();
     connection = createMockConnection();
@@ -150,12 +143,12 @@ public abstract class AbstractMyBatisSpringTest {
     dataSource.addConnection(connection);
   }
 
-  @Before
+  @BeforeEach
   public void resetExecutorInterceptor() {
     executorInterceptor.reset();
   }
 
-  @After
+  @AfterEach
   public void validateConnectionClosed() {
     assertConnectionClosed(connection);
 
