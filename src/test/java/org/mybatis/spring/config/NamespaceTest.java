@@ -1,30 +1,43 @@
-/**
- *    Copyright 2010-2015 the original author or authors.
+/*
+ * Copyright 2010-2026 the original author or authors.
  *
- *    Licensed under the Apache License, Version 2.0 (the "License");
- *    you may not use this file except in compliance with the License.
- *    You may obtain a copy of the License at
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- *       http://www.apache.org/licenses/LICENSE-2.0
+ *    https://www.apache.org/licenses/LICENSE-2.0
  *
- *    Unless required by applicable law or agreed to in writing, software
- *    distributed under the License is distributed on an "AS IS" BASIS,
- *    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *    See the License for the specific language governing permissions and
- *    limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 package org.mybatis.spring.config;
 
-import static org.junit.Assert.fail;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
-import org.junit.After;
-import org.junit.Test;
+import com.mockrunner.mock.jdbc.MockDataSource;
+
+import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
+import org.apache.ibatis.session.SqlSessionFactory;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Test;
 import org.mybatis.spring.SqlSessionFactoryBean;
 import org.mybatis.spring.SqlSessionTemplate;
 import org.mybatis.spring.mapper.AnnotatedMapper;
 import org.mybatis.spring.mapper.MapperInterface;
+import org.mybatis.spring.mapper.MapperScannerConfigurer;
 import org.mybatis.spring.mapper.MapperSubinterface;
+import org.mybatis.spring.mapper.ScopedProxyMapper;
 import org.mybatis.spring.mapper.child.MapperChildInterface;
+import org.mybatis.spring.type.DummyMapperFactoryBean;
 import org.springframework.beans.factory.NoSuchBeanDefinitionException;
 import org.springframework.beans.factory.config.BeanDefinition;
 import org.springframework.beans.factory.config.ConstructorArgumentValues;
@@ -35,17 +48,12 @@ import org.springframework.beans.factory.support.GenericBeanDefinition;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
 import org.springframework.context.support.GenericApplicationContext;
 
-import com.mockrunner.mock.jdbc.MockDataSource;
-
 /**
  * Test for the MapperScannerRegistrar.
  * <p>
- * This test works fine with Spring 3.1 and 3.2 but with 3.1 the registrar is
- * called twice.
- * 
- * @version $Id$
+ * This test works fine with Spring 3.1 and 3.2 but with 3.1 the registrar is called twice.
  */
-public final class NamespaceTest {
+class NamespaceTest {
   private ClassPathXmlApplicationContext applicationContext;
 
   private void startContext() {
@@ -56,37 +64,49 @@ public final class NamespaceTest {
     applicationContext.getBean("sqlSessionFactory");
   }
 
-  @After
-  public void assertNoMapperClass() {
-    // concrete classes should always be ignored by MapperScannerPostProcessor
-    assertBeanNotLoaded("mapperClass");
+  @AfterEach
+  void assertNoMapperClass() {
+    try {
+      // concrete classes should always be ignored by MapperScannerPostProcessor
+      assertBeanNotLoaded("mapperClass");
 
-    // no method interfaces should be ignored too
-    assertBeanNotLoaded("package-info");
-    // assertBeanNotLoaded("annotatedMapperZeroMethods"); // as of 1.1.0 mappers
-    // with no methods are loaded
-
-    applicationContext.destroy();
+      // no method interfaces should be ignored too
+      assertBeanNotLoaded("package-info");
+      // assertBeanNotLoaded("annotatedMapperZeroMethods"); // as of 1.1.0 mappers
+      // with no methods are loaded
+    } finally {
+      applicationContext.close();
+    }
   }
 
   @Test
-  public void testInterfaceScan() {
+  void testInterfaceScan() {
 
-    applicationContext = new ClassPathXmlApplicationContext(new String[] { "org/mybatis/spring/config/base-package.xml" }, setupSqlSessionFactory());
+    applicationContext = new ClassPathXmlApplicationContext(
+        new String[] { "org/mybatis/spring/config/base-package.xml" }, setupSqlSessionFactory());
 
     startContext();
+
+    var sqlSessionFactory = applicationContext.getBean(SqlSessionFactory.class);
+    assertEquals(5, sqlSessionFactory.getConfiguration().getMapperRegistry().getMappers().size());
 
     // all interfaces with methods should be loaded
     applicationContext.getBean("mapperInterface");
     applicationContext.getBean("mapperSubinterface");
     applicationContext.getBean("mapperChildInterface");
     applicationContext.getBean("annotatedMapper");
+
+    assertThat(applicationContext.getBeanFactory()
+        .getBeanDefinition(applicationContext.getBeanNamesForType(MapperScannerConfigurer.class)[0]).getRole())
+            .isEqualTo(BeanDefinition.ROLE_INFRASTRUCTURE);
+
   }
 
   @Test
-  public void testNameGenerator() {
+  void testNameGenerator() {
 
-    applicationContext = new ClassPathXmlApplicationContext(new String[] { "org/mybatis/spring/config/name-generator.xml" }, setupSqlSessionFactory());
+    applicationContext = new ClassPathXmlApplicationContext(
+        new String[] { "org/mybatis/spring/config/name-generator.xml" }, setupSqlSessionFactory());
 
     startContext();
 
@@ -98,9 +118,10 @@ public final class NamespaceTest {
   }
 
   @Test
-  public void testMarkerInterfaceScan() {
+  void testMarkerInterfaceScan() {
 
-    applicationContext = new ClassPathXmlApplicationContext(new String[] { "org/mybatis/spring/config/marker-interface.xml" }, setupSqlSessionFactory());
+    applicationContext = new ClassPathXmlApplicationContext(
+        new String[] { "org/mybatis/spring/config/marker-interface.xml" }, setupSqlSessionFactory());
 
     startContext();
 
@@ -113,9 +134,10 @@ public final class NamespaceTest {
   }
 
   @Test
-  public void testAnnotationScan() {
+  void testAnnotationScan() {
 
-    applicationContext = new ClassPathXmlApplicationContext(new String[] { "org/mybatis/spring/config/annotation.xml" }, setupSqlSessionFactory());
+    applicationContext = new ClassPathXmlApplicationContext(new String[] { "org/mybatis/spring/config/annotation.xml" },
+        setupSqlSessionFactory());
 
     startContext();
 
@@ -128,9 +150,10 @@ public final class NamespaceTest {
   }
 
   @Test
-  public void testMarkerInterfaceAndAnnotationScan() {
+  void testMarkerInterfaceAndAnnotationScan() {
 
-    applicationContext = new ClassPathXmlApplicationContext(new String[] { "org/mybatis/spring/config/marker-and-annotation.xml" }, setupSqlSessionFactory());
+    applicationContext = new ClassPathXmlApplicationContext(
+        new String[] { "org/mybatis/spring/config/marker-and-annotation.xml" }, setupSqlSessionFactory());
 
     startContext();
 
@@ -143,9 +166,10 @@ public final class NamespaceTest {
   }
 
   @Test
-  public void testScanWithExplicitSqlSessionFactory() throws Exception {
+  void testScanWithExplicitSqlSessionFactory() {
 
-    applicationContext = new ClassPathXmlApplicationContext(new String[] { "org/mybatis/spring/config/factory-ref.xml" }, setupSqlSessionFactory());
+    applicationContext = new ClassPathXmlApplicationContext(
+        new String[] { "org/mybatis/spring/config/factory-ref.xml" }, setupSqlSessionFactory());
 
     startContext();
 
@@ -157,9 +181,10 @@ public final class NamespaceTest {
   }
 
   @Test
-  public void testScanWithExplicitSqlSessionTemplate() throws Exception {
+  void testScanWithExplicitSqlSessionTemplate() {
 
-    applicationContext = new ClassPathXmlApplicationContext(new String[] { "org/mybatis/spring/config/factory-ref.xml" }, setupSqlSessionTemplate());
+    applicationContext = new ClassPathXmlApplicationContext(
+        new String[] { "org/mybatis/spring/config/factory-ref.xml" }, setupSqlSessionTemplate());
 
     startContext();
 
@@ -170,12 +195,118 @@ public final class NamespaceTest {
     applicationContext.getBean("annotatedMapper");
   }
 
+  @Test
+  void testScanWithMapperFactoryBeanClass() {
+    DummyMapperFactoryBean.clear();
+    applicationContext = new ClassPathXmlApplicationContext(
+        new String[] { "org/mybatis/spring/config/mapper-factory-bean-class.xml" }, setupSqlSessionTemplate());
+
+    startContext();
+
+    // all interfaces with methods should be loaded
+    applicationContext.getBean("mapperInterface");
+    applicationContext.getBean("mapperSubinterface");
+    applicationContext.getBean("mapperChildInterface");
+    applicationContext.getBean("annotatedMapper");
+
+    assertTrue(DummyMapperFactoryBean.getMapperCount() > 0);
+  }
+
+  @Test
+  void testLazy() {
+
+    applicationContext = new ClassPathXmlApplicationContext(new String[] { "org/mybatis/spring/config/lazy.xml" },
+        setupSqlSessionTemplate());
+
+    startContext();
+
+    var sqlSessionFactory = applicationContext.getBean(SqlSessionFactory.class);
+    assertEquals(0, sqlSessionFactory.getConfiguration().getMapperRegistry().getMappers().size());
+
+    // all interfaces with methods should be loaded
+    applicationContext.getBean("mapperInterface");
+    applicationContext.getBean("mapperSubinterface");
+    applicationContext.getBean("mapperChildInterface");
+    applicationContext.getBean("annotatedMapper");
+
+    assertEquals(4, sqlSessionFactory.getConfiguration().getMapperRegistry().getMappers().size());
+  }
+
+  @Test
+  void testDefaultScope() {
+    applicationContext = new ClassPathXmlApplicationContext(
+        new String[] { "org/mybatis/spring/config/default-scope.xml" }, false, setupSqlSessionTemplate());
+
+    startContext();
+
+    List<String> scopedProxyTargetBeans = Stream.of(applicationContext.getBeanDefinitionNames())
+        .filter(x -> x.startsWith("scopedTarget")).collect(Collectors.toList());
+    assertThat(scopedProxyTargetBeans).hasSize(6).contains("scopedTarget.scopedProxyMapper",
+        "scopedTarget.annotatedMapper", "scopedTarget.annotatedMapperZeroMethods", "scopedTarget.mapperInterface",
+        "scopedTarget.mapperSubinterface", "scopedTarget.mapperChildInterface");
+
+    for (String scopedProxyTargetBean : scopedProxyTargetBeans) {
+      {
+        var definition = applicationContext.getBeanFactory().getBeanDefinition(scopedProxyTargetBean);
+        assertThat(definition.getBeanClassName()).isEqualTo("org.mybatis.spring.mapper.MapperFactoryBean");
+        assertThat(definition.getScope()).isEqualTo("thread");
+      }
+      {
+        var definition = applicationContext.getBeanFactory().getBeanDefinition(scopedProxyTargetBean.substring(13));
+        assertThat(definition.getBeanClassName()).isEqualTo("org.springframework.aop.scope.ScopedProxyFactoryBean");
+        assertThat(definition.getScope()).isEqualTo("");
+      }
+    }
+    {
+      var mapper = applicationContext.getBean(ScopedProxyMapper.class);
+      assertThat(mapper.test()).isEqualTo("test");
+    }
+    {
+      var mapper = applicationContext.getBean(AnnotatedMapper.class);
+      assertThat(mapper.test()).isEqualTo("main");
+    }
+
+    var sqlSessionFactory = applicationContext.getBean(SqlSessionFactory.class);
+    assertEquals(2, sqlSessionFactory.getConfiguration().getMapperRegistry().getMappers().size());
+  }
+
+  @Test
+  void processPropertyPlaceHoldersIsTrue() {
+
+    applicationContext = new ClassPathXmlApplicationContext(
+        new String[] { "org/mybatis/spring/config/process-property-placeholders-true.xml" }, setupSqlSessionTemplate());
+
+    startContext();
+
+    var sqlSessionFactory = applicationContext.getBean(SqlSessionFactory.class);
+    assertEquals(5, sqlSessionFactory.getConfiguration().getMapperRegistry().getMappers().size());
+
+    var myBean = applicationContext.getBean("myBean", MyBean.class);
+    assertThat(myBean.getName()).isEqualTo("MyBean!!");
+  }
+
+  @Test
+  void processPropertyPlaceHoldersIsFalse() {
+
+    applicationContext = new ClassPathXmlApplicationContext(
+        new String[] { "org/mybatis/spring/config/process-property-placeholders-false.xml" },
+        setupSqlSessionTemplate());
+
+    startContext();
+
+    var sqlSessionFactory = applicationContext.getBean(SqlSessionFactory.class);
+    assertEquals(5, sqlSessionFactory.getConfiguration().getMapperRegistry().getMappers().size());
+
+    var myBean = applicationContext.getBean("myBean", MyBean.class);
+    assertThat(myBean.getName()).isEqualTo("MyBean!!");
+  }
+
   private GenericApplicationContext setupSqlSessionTemplate() {
 
-    GenericApplicationContext genericApplicationContext = setupSqlSessionFactory();
-    GenericBeanDefinition definition = new GenericBeanDefinition();
+    var genericApplicationContext = setupSqlSessionFactory();
+    var definition = new GenericBeanDefinition();
     definition.setBeanClass(SqlSessionTemplate.class);
-    ConstructorArgumentValues constructorArgs = new ConstructorArgumentValues();
+    var constructorArgs = new ConstructorArgumentValues();
     constructorArgs.addGenericArgumentValue(new RuntimeBeanReference("sqlSessionFactory"));
     definition.setConstructorArgumentValues(constructorArgs);
     genericApplicationContext.registerBeanDefinition("sqlSessionTemplate", definition);
@@ -184,13 +315,13 @@ public final class NamespaceTest {
 
   private GenericApplicationContext setupSqlSessionFactory() {
 
-    GenericApplicationContext genericApplicationContext = new GenericApplicationContext();
+    var genericApplicationContext = new GenericApplicationContext();
 
-    GenericBeanDefinition definition = new GenericBeanDefinition();
+    var definition = new GenericBeanDefinition();
     definition.setBeanClass(SqlSessionFactoryBean.class);
     definition.getPropertyValues().add("dataSource", new MockDataSource());
 
-    DefaultListableBeanFactory factory = new DefaultListableBeanFactory();
+    var factory = new DefaultListableBeanFactory();
     factory.registerBeanDefinition("sqlSessionFactory", definition);
 
     genericApplicationContext.registerBeanDefinition("sqlSessionFactory", definition);

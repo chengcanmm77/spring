@@ -1,17 +1,19 @@
 MyBatis Spring Adapter
 ======================
 
-[![Build Status](https://travis-ci.org/mybatis/spring.svg?branch=master)](https://travis-ci.org/mybatis/spring)
+[![Java CI](https://github.com/mybatis/spring/actions/workflows/ci.yaml/badge.svg)](https://github.com/mybatis/spring/actions/workflows/ci.yaml)
 [![Coverage Status](https://coveralls.io/repos/mybatis/spring/badge.svg?branch=master&service=github)](https://coveralls.io/github/mybatis/spring?branch=master)
-[![Dependency Status](https://www.versioneye.com/user/projects/5619b698a193340f2f000520/badge.svg?style=flat)](https://www.versioneye.com/user/projects/5619b698a193340f2f000520)
-[![Maven central](https://maven-badges.herokuapp.com/maven-central/org.mybatis/mybatis-spring/badge.svg)](https://maven-badges.herokuapp.com/maven-central/org.mybatis/mybatis-spring)
-[![Apache 2](http://img.shields.io/badge/license-Apache%202-red.svg)](http://www.apache.org/licenses/LICENSE-2.0)
+[![Maven Central](https://img.shields.io/maven-central/v/org.mybatis/mybatis-spring.svg)](https://central.sonatype.com/artifact/org.mybatis/mybatis-spring)
+[![Docs](https://img.shields.io/badge/docs-mybatis.org-blue?logo=github)](https://mybatis.org/spring/)
+[![License](https://img.shields.io/:license-apache-brightgreen.svg)](https://www.apache.org/licenses/LICENSE-2.0.html)
 
-![mybatis-spring](http://mybatis.github.io/images/mybatis-logo.png)
+![mybatis-spring](https://mybatis.org/images/mybatis-logo.png)
 
-MyBatis-Spring adapter is an easy-to-use Spring3 bridge for MyBatis sql mapping framework.
+MyBatis-Spring adapter is an easy-to-use [Spring Framework](https://github.com/spring-projects/spring-framework) bridge for [MyBatis](https://github.com/mybatis/mybatis-3) sql mapping framework.
 
-Essentials
-----------
+Supported Versions
+------------------
 
-* [See the docs](http://mybatis.github.io/spring/)
+- master - Support for Spring 7 and Spring Batch 6
+- 3.0.x - Support for Spring 6 and Spring Batch 5
+- 2.1.x - Maintenance for Spring 5 and Spring Batch 4
